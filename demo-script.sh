@@ -263,12 +263,40 @@ while true; do
   echo
 done
 
-# Step 12: Cleanup
-read -p "Step 12: Cleanup demo resources. Press enter to proceed..."
+# Step 12: View AI Gateway Metrics
+echo "Step 12: View AI Gateway Metrics."
+echo "Setting up port-forwarding to access AI Gateway metrics..."
+echo
+
+# Start port-forwarding in the background
+kubectl port-forward -n gloo-system $(kubectl get pod -l gateway.networking.k8s.io/gateway-name=ai-gateway -n gloo-system -o jsonpath='{.items[0].metadata.name}') 9092:9092 >/dev/null 2>&1 &
+
+# Capture the background process ID to terminate later
+PORT_FORWARD_PID=$!
+
+# Wait a few seconds to ensure port-forwarding is established
+sleep 2
+
+# Curl the metrics endpoint
+echo "Fetching AI Gateway metrics for ai_prompt_tokens_total"
+curl -s http://localhost:9092 | grep "ai_prompt_tokens_total"
+echo
+echo "To view all of the available AI gateway metrics navigate to http://localhost:9092 in your browser"
+echo
+
+# Step 13: Cleanup
+read -p "Step 13: Cleanup demo resources. Press enter to proceed..."
 kubectl delete -f tiered-rate-limit
 kubectl delete -f access-control/rbac
 kubectl delete -f access-control
 kubectl delete -f route
+kubectl delete pods -l gloo=redis -n gloo-system
+
+# Kill the port-forwarding process
+if ps -p $PORT_FORWARD_PID > /dev/null; then
+  kill $PORT_FORWARD_PID >/dev/null 2>&1
+fi
+
 echo "Cleanup completed."
 echo
 
